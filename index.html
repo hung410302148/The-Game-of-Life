@@ -13,12 +13,13 @@
     <!-- 加入頁 -->
     <div id="join-page" class="page">
         <div class="card">
-            <h1>🎮 生命之旅</h1>
-            <p>電子銀行系統</p>
+            <h1>❤️生命之旅💰</h1><span>電子銀行系統</span>
+            <div style="padding: 10px; margin-top: 10px;"></div>
             <input type="text" id="playerName"
-                style="width: 80%; padding: 10px; margin-bottom: 10px;"
-                placeholder="請輸入玩家名稱">
-            <button id="joinBtn" class="primary-btn">開始人生</button>
+                style="width: 80%; padding: 10px; margin-bottom: 10px; border-radius: 10px;" placeholder="請輸入你的名稱">
+            <input type="text" id="roomID" style="width: 80%; padding: 10px; margin-bottom: 10px; border-radius: 10px;"
+                placeholder="輸入房間號碼">
+            <button id="joinBtn" class="join-btn">開始人生</button>
         </div>
     </div>
 
@@ -27,7 +28,7 @@
 
         <header>
             <div id="turn-indicator">等待操作...</div>
-            <div id="welcome-msg">玩家：<span>-</span></div>
+            <div id="welcome-msg">玩家 <span id="welcome-msg-name">-</span></div>
         </header>
 
         <main class="dashboard">
@@ -36,74 +37,112 @@
             <section class="dashboard-stats">
                 <div class="stats-row-main">
                     <div class="stat-box money" id="display-balance-box">
-                        <label>現金 (Cash)</label>
+                        <label>金錢</label>
                         <div id="display-balance">$0</div>
                     </div>
                     <div class="stat-box life" id="display-life-box">
-                        <label>人生值 (Life)</label>
+                        <label>人生值</label>
                         <div id="display-life">0</div>
                     </div>
                 </div>
-
+                
                 <div class="stats-row-sub">
                     <div class="stat-box" id="box-years">
-                        <label>年數</label>
+                        <label>years</label>
                         <div id="display-years">30</div>
                     </div>
                     <div class="stat-box" id="box-salary">
-                        <label>薪資</label>
-                        <div id="display-salary">0</div>
+                        <label>salary</label>
+                        <div id="display-salary">$0</div>
                     </div>
                     <div class="stat-box" id="box-marriage">
-                        <label>婚姻</label>
+                        <label>marriage</label>
                         <div id="status-marriage">無</div>
                     </div>
                     <div class="stat-box" id="box-child">
-                        <label>子女</label>
-                        <div id="status-child">0</div>
+                        <label>baby</label>
+                        <div id="status-child">無</div>
                     </div>
                     <div class="stat-box" id="box-house">
-                        <label>房產</label>
+                        <label>house</label>
                         <div id="status-house">無</div>
                     </div>
                     <div class="stat-box" id="box-car">
-                        <label>車輛</label>
+                        <label>car</label>
                         <div id="status-car">無</div>
                     </div>
                     <div class="stat-box" id="box-edu">
-                        <label>學歷</label>
-                        <div id="status-edu">高中</div>
+                        <label>degree</label>
+                        <div id="status-edu">無</div>
                     </div>
                 </div>
             </section>
+            
+            <!-- 通用功能面板（滑入式）-->
+            <div id="func-panel" class="func-panel" style="display:none;">
+                <div class="func-panel-header">
+                    <span id="func-panel-title" class="func-panel-title"></span>
+                    <button id="func-panel-close" class="func-panel-close">✕</button>
+                </div>
+                <div id="func-panel-body" class="func-panel-body">
+                    <!-- 內容由 JS 動態填入 -->
+                </div>
+                <!-- 數字鍵盤（digit mode 用）-->
+                <div id="func-digit-pad" class="func-digit-pad" style="display:none;">
+                    <div class="digit-display" id="digit-display">-</div>
+                    <div class="digit-grid">
+                        <button class="digit-btn" data-digit="1">1</button>
+                        <button class="digit-btn" data-digit="2">2</button>
+                        <button class="digit-btn" data-digit="3">3</button>
+                        <button class="digit-btn" data-digit="4">4</button>
+                        <button class="digit-btn" data-digit="5">5</button>
+                        <button class="digit-btn" data-digit="6">6</button>
+                        <button class="digit-btn" data-digit="7">7</button>
+                        <button class="digit-btn" data-digit="8">8</button>
+                        <button class="digit-btn" data-digit="9">9</button>
+                        <button class="digit-btn digit-del" data-digit="del">⌫</button>
+                        <button class="digit-btn" data-digit="0">0</button>
+                        <button class="digit-btn digit-ok" data-digit="ok">OK</button>
+                    </div>
+                </div>
+                <div id="func-panel-actions" class="func-panel-actions"></div>
+            </div>
 
+            <!-- 大樂透面板（獨立覆蓋，不在 dashboard scroll 裡）-->
+            <div id="lottery-panel" style="display:none;">
+                <div class="lottery-header">
+                    <div id="lottery-pot" style="font-size:18px;font-weight:bold;color:var(--primary);"></div>
+                    <div id="lottery-info" style="font-size:13px;color:var(--text);margin-top:4px;"></div>
+                </div>
+                <div id="lottery-numbers" class="lottery-numbers"></div>
+            </div>
+                
             <!-- 操作控制區 -->
             <section class="controls">
                 <div id="function-grid" class="function-grid">
-                    <button class="func-btn" data-val="1">1<br>Salary</button>
-                    <button class="func-btn" data-val="2">2<br>Lottery</button>
-                    <button class="func-btn" data-val="3">3<br>Marriage</button>
-                    <button class="func-btn" data-val="4">4<br>Child</button>
-                    <button class="func-btn" data-val="5">5<br>House</button>
-                    <button class="func-btn" data-val="6">6<br>Car</button>
-                    <button class="func-btn" data-val="7">7<br>Tax</button>
-                    <button class="func-btn" data-val="8">8<br>Event</button>
-                    <button class="func-btn" data-val="9">9<br>Stock</button>
-                    <button class="func-btn" data-val="10">10<br>Life</button>
+                    <button class="func-btn" data-val="1">1<br><span class="func-label">SALARY</span></button>
+                    <button class="func-btn" data-val="2">2<br><span class="func-label">LOTTERY</span></button>
+                    <button class="func-btn" data-val="3">3<br><span class="func-label">CHANCE</span></button>
+                    <button class="func-btn" data-val="4">4<br><span class="func-label">MARRIAGE</span></button>
+                    <button class="func-btn" data-val="5">5<br><span class="func-label">HOUSE</span></button>
+                    <button class="func-btn" data-val="6">6<br><span class="func-label">CAR</span></button>
+                    <button class="func-btn" data-val="7">7<br><span class="func-label">BABY</span></button>
+                    <button class="func-btn" data-val="8">8<br><span class="func-label">DEGREE</span></button>
+                    <button class="func-btn" data-val="9">9<br><span class="func-label">LOG</span></button>
+                    <button class="func-btn" data-val="10">10<br><span class="func-label">YEARS</span></button>
                 </div>
 
                 <div class="operation-row">
-                    <button id="resetBtn" class="side-btn hidden">Reset</button>
+                    <button id="resetBtn" class="side-btn hidden">UNDO</button>
                     <button id="minusBtn" class="op-btn">-</button>
                     <div class="spin-box">
-                        <div id="spin-result"></div>
                         <button id="spinBtn">SPIN</button>
                     </div>
                     <button id="plusBtn" class="op-btn">+</button>
-                    <button id="enterBtn" class="side-btn hidden">Enter</button>
+                    <button id="enterBtn" class="side-btn hidden">ENTER</button>
                 </div>
 
-                <button id="endTurnBtn" class="primary-btn">✅ 結束回合</button>
+                <button id="endTurnBtn" class="primary-btn">結束回合</button>
             </section>
 
             <!-- 全場玩家狀態 -->
@@ -114,14 +153,39 @@
 
             <!-- 底部 -->
             <section class="bottom-controls">
-                <button id="leaveBtn" class="primary-btn" style="background: #94a3b8; margin-top: 10px;">
-                    退出遊戲
-                </button>
+                <button id="leaveBtn" class="leave-btn">退出遊戲</button>
             </section>
 
         </main>
     </div>
 
+    <!-- LOG 頁 -->
+    <div id="log-page" class="page" style="display:none;">
+        <header>
+            <div id="log-title" style="font-weight:bold; color: var(--primary);">📋 操作記錄</div>
+            <section class="logBack-btn-controls">
+                <button id="logBackBtn" class="logBack-btn">← 返回</button>
+            </section>
+        </header>
+        <main class="dashboard">
+            <div id="log-list" class="log-list"></div>
+
+        </main>
+    </div>
+
+
+    <!-- 排行榜頁（結算結束後顯示）-->
+    <div id="ranking-page" class="page" style="display:none;">
+        <header>
+            <div style="font-weight:bold; color: var(--primary); font-size:18px;">🏆 最終排行榜</div>
+        </header>
+        <main class="dashboard">
+            <div id="ranking-list" class="ranking-list"></div>
+            <section class="bottom-controls">
+                <button id="endGameBtn" class="primary-btn" style="background:var(--danger);width:60%;margin-top:20px;">結束遊戲</button>
+            </section>
+        </main>
+    </div>
     <script type="module" src="script.js"></script>
 </body>
 

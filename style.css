@@ -7,6 +7,9 @@
     --danger: #f32424;
     --pass: #5cd139;
     --life: #8b5cf6;
+    --btn: #191919;
+    --side: #737e8d;
+    --block: #5e5e5e;
 }
 
 /* =============================================
@@ -35,7 +38,7 @@ body.active-turn {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    padding: 20px;
+    padding: 5px;
     box-sizing: border-box;
 }
 
@@ -48,6 +51,14 @@ body.active-turn {
 }
 #game-page::-webkit-scrollbar { display: none; }
 
+#log-page {
+    flex-direction: column;
+    height: 100vh;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+#log-page::-webkit-scrollbar { display: none; }
+
 .dashboard {
     flex: 1;
     overflow-y: auto;
@@ -57,16 +68,13 @@ body.active-turn {
 .dashboard::-webkit-scrollbar { display: none; }
 
 /* =============================================
-   卡片 / 共用區塊
+   卡片
    ============================================= */
-.card, .stat-box, .controls {
+.card {
     background: var(--card-bg);
     border: 1px solid #333;
     color: var(--text);
-}
-
-.card {
-    padding: 30px;
+    padding: 10px;
     border-radius: 15px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
     text-align: center;
@@ -86,7 +94,7 @@ header {
     align-items: center;
     padding: 15px;
     border-radius: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 #turn-indicator {
@@ -98,6 +106,10 @@ header {
    數值格
    ============================================= */
 .dashboard-stats {
+    padding: 5px;
+    padding-top: 12px;
+    border-radius: 15px;
+    background: var(--block);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -122,8 +134,9 @@ header {
 .stats-row-sub::-webkit-scrollbar { display: none; }
 
 .stat-box {
-    background: var(--card-bg);
-    border: 1px solid #333;
+    color: var(--text);
+    background: var(--btn);
+    border: 2px solid transparent;
     border-radius: 8px;
     text-align: center;
     padding: 10px 2px;
@@ -152,6 +165,9 @@ header {
    控制區
    ============================================= */
 .controls {
+    background: var(--block);
+    border: 1px solid #333;
+    color: var(--text);
     padding: 20px;
     border-radius: 15px;
     text-align: center;
@@ -164,49 +180,90 @@ header {
     margin-bottom: 15px;
 }
 
+/* ── func-btn 基礎：大小固定，兩種模式不會改變 ── */
 .func-btn {
-    background: #222;
-    padding: 10px 0;
+    background: var(--btn);
+    /* 固定高度讓切換模式不跳動 */
+    height: 52px;
+    padding: 0;
     border: 2px solid transparent;
     border-radius: 15px;
     color: var(--text);
-    transition: all 0.2s ease;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    font-size: 13px;
+    line-height: 1.3;
+    cursor: pointer;
 }
 .func-btn:active { transform: scale(0.95); }
+
+/* func mode：數字大，func-label 小 */
+.func-btn .func-label {
+    font-size: 8px;
+    opacity: 0.7;
+    display: block;
+    line-height: 1;
+}
+
+/* func-active：與現金/人生值格子相同的白色亮邊框 */
+.func-btn.func-active {
+    border-color: #ffffff;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+}
+
+/* ── digit mode：只隱藏 func-label 和 br，數字大小不變 ──
+   用 visibility 而非 display:none 以保持按鈕高度不跳 */
+body.digit-input .func-btn .func-label,
+body.digit-input .func-btn br {
+    visibility: hidden;
+    font-size: 0;
+    line-height: 0;
+}
+
+/* digit mode 下數字放大，置中 */
+body.digit-input .func-btn {
+    font-size: 20px;
+    font-weight: bold;
+    justify-content: center;
+}
 
 /* 跑馬燈高亮 */
 .func-btn.highlight {
     border-color: var(--accent);
+    background: rgba(245, 158, 11, 0.35);
     color: white;
-    box-shadow: 0 0 10px var(--accent);
+    box-shadow: 0 0 14px var(--accent), inset 0 0 8px rgba(245,158,11,0.2);
+    transform: scale(1.05);
 }
 
 /* 最終中獎 */
 .func-btn.light-on {
     border-color: var(--accent);
-    background: rgba(245, 158, 11, 0.15);
+    background: rgba(245, 159, 11, 0.342);
     color: white;
     box-shadow: 0 0 15px var(--accent);
 }
 
-/* 鎖定中 */
+/* 鎖定中（SPIN 期間） */
 .func-btn.locked {
     opacity: 1;
     pointer-events: none;
     border-color: transparent;
 }
 
-/* 操作列 */
+/* =============================================
+   操作列
+   ============================================= */
 .operation-row {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 15px;
-    margin-bottom: 15px;
+    margin-top: 30px;
+    margin-bottom: 10px;
 }
 
 /* 加 / 減按鈕 */
@@ -220,67 +277,138 @@ header {
     border: none;
     background: var(--primary);
     color: white;
-    transition: opacity 0.3s;
 }
-.op-btn.active {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-/* 已選擇方向：金色邊框高亮 */
+.op-btn.active  { opacity: 1; pointer-events: auto; }
 .op-btn.selected {
     outline: 2px solid var(--primary);
     box-shadow: 0 0 10px rgba(212, 175, 55, 0.6);
 }
 
-/* SPIN 按鈕 */
+/* =============================================
+   SPIN 按鈕
+   ============================================= */
 .spin-box {
+    position: relative;
+    width: 90px;
+    height: 90px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 #spinBtn {
+    position: relative;
     width: 80px;
     height: 80px;
-    border-radius: 40%;
+    border-radius: 50%;
     border: none;
-    background: linear-gradient(145deg, #d4af37, #aa8a2e);
-    color: #000;
+    background: #1a1a1a;
+    color: #ffd700;
     font-weight: bold;
     font-size: 18px;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
-}
-#spinBtn:active {
-    transform: scale(0.9);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-#spinBtn:disabled {
-    background: #64748b;
-    cursor: not-allowed;
+    transition: all 0.3s;
 }
 
+#spinBtn::before {
+    content: '';
+    position: absolute;
+    top: -2px; right: -2px; bottom: -2px; left: -2px;
+    background: conic-gradient(
+        from 0deg,
+        transparent 0%,
+        #edcfe7 25%,
+        #abff7b 50%,
+        #ffd700 75%,
+        #ffffff 100%
+    );
+    border-radius: 50%;
+    z-index: -1;
+    animation: rotateGradient 4s linear infinite;
+}
+
+#spinBtn::after {
+    content: 'SPIN';
+    position: absolute;
+    inset: 2px;
+    background: #0a0a0a;
+    border-radius: 50%;
+    z-index: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes rotateGradient {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+#spinBtn:disabled::before { background: #333; animation: none; }
+#spinBtn:disabled { color: #666; }
+#spinBtn:active:not(:disabled) { transform: scale(0.92); }
+
+#spinBtn.spin-spinning::before { animation-duration: 0.4s; }
+
+#spinBtn.spin-done::before,
+#spinBtn.spin-locked::before {
+    animation-play-state: paused;
+    filter: brightness(0.25);
+}
+#spinBtn.spin-done,
+#spinBtn.spin-locked { color: #444; cursor: not-allowed; }
+
 /* =============================================
-   側邊按鈕 / 主按鈕
+   按鈕：side / primary / join / leave
    ============================================= */
+.join-btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    width: 30%;
+    margin-top: 10px;
+}
+
 .side-btn {
     width: 70px;
     height: 50px;
     padding: 8px 12px;
     border-radius: 20%;
-    background: #64748b;
+    background: var(--side);
     color: white;
     border: none;
     cursor: pointer;
 }
 
 .primary-btn {
-    background: var(--primary);
+    background: var(--side);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    width: 50%;
+    margin-top: 10px;
+    transition: opacity 0.3s;
+}
+
+/* endTurn 被鎖定時的樣式 */
+.primary-btn.btn-locked {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+#leaveBtn {
+    background: var(--card-bg);
     color: white;
     border: none;
     padding: 12px 25px;
@@ -291,7 +419,8 @@ header {
     margin-top: 10px;
 }
 
-.hidden { visibility: hidden; }
+/* hidden：透明但保留空間（避免按鈕消失造成版面跳動）*/
+.hidden { opacity: 0.0; pointer-events: none; }
 
 /* =============================================
    玩家列表
@@ -332,9 +461,385 @@ header {
 }
 
 /* =============================================
+   LOG 頁面
+   ============================================= */
+.log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 4px;
+}
+
+.log-item {
+    background: var(--card-bg);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: grid;
+    grid-template-columns: 70px 80px 1fr;
+    gap: 8px;
+    align-items: center;
+    font-size: 13px;
+}
+
+.log-time {
+    color: #888;
+    font-size: 11px;
+}
+
+.log-name {
+    color: var(--primary);
+    font-weight: bold;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.log-msg {
+    color: var(--text);
+}
+
+.logBack-btn{
+    background: var(--side);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.3s;
+
+
+}
+
+/* =============================================
    負數金額
    ============================================= */
 .negative-money {
     color: var(--danger) !important;
     text-shadow: 0 0 5px var(--danger);
 }
+
+/* =============================================
+   HOUSE dim（非選項按鈕暗下）
+   ============================================= */
+.func-btn.house-dim {
+    opacity: 0.2;
+    pointer-events: none;
+}
+
+/* =============================================
+   大樂透面板
+   ============================================= */
+#lottery-panel {
+    background: #1a1a1a;
+    border: 1px solid var(--primary);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 12px 0;
+}
+
+.lottery-header {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.lottery-numbers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 4px;
+    scrollbar-width: none;
+}
+.lottery-numbers::-webkit-scrollbar { display: none; }
+
+.lottery-num-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 2px solid #444;
+    background: var(--btn);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.lottery-num-btn:active   { transform: scale(0.9); }
+.lottery-num-btn.selected-num {
+    border-color: var(--primary);
+    background: rgba(212,175,55,0.2);
+    color: var(--primary);
+}
+.lottery-num-btn.num-taken {
+    opacity: 0.25;
+    cursor: not-allowed;
+}
+.lottery-num-btn.lottery-highlight {
+    border-color: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    color: white;
+}
+.lottery-num-btn.lottery-winner {
+    border-color: var(--danger);
+    background: rgba(243, 36, 36, 0.25);
+    box-shadow: 0 0 15px var(--danger);
+    color: white;
+    animation: winnerPulse 0.5s ease infinite alternate;
+}
+@keyframes winnerPulse {
+    from { box-shadow: 0 0 10px var(--danger); }
+    to   { box-shadow: 0 0 30px var(--danger), 0 0 5px white; }
+}
+
+
+
+/* =============================================
+   數值格跳動動畫
+   ============================================= */
+@keyframes statUp {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(1.12); background: rgba(92, 209, 57, 0.15); }
+    100% { transform: scale(1); }
+}
+@keyframes statDown {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(1.08); background: rgba(243, 36, 36, 0.15); }
+    100% { transform: scale(1); }
+}
+.stat-anim-up {
+    animation: statUp 0.5s ease-out forwards;
+}
+.stat-anim-down {
+    animation: statDown 0.5s ease-out forwards;
+}
+
+/* =============================================
+   排行榜
+   ============================================= */
+#ranking-page {
+    background: var(--bg);
+}
+
+.ranking-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 8px;
+}
+
+.ranking-item {
+    background: var(--card-bg);
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+}
+
+.ranking-item:first-child {
+    border-color: var(--primary);
+    background: #3a3520;
+    box-shadow: 0 0 12px rgba(212, 175, 55, 0.3);
+}
+
+.rank-medal {
+    font-size: 24px;
+    min-width: 36px;
+    text-align: center;
+}
+
+.rank-name {
+    flex: 1;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.rank-life {
+    color: var(--life);
+    font-weight: bold;
+    font-size: 18px;
+}
+
+/* 結算階段指示 */
+.settlement-banner {
+    background: rgba(212, 175, 55, 0.1);
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: center;
+    color: var(--primary);
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+/* 玩家列表可點擊提示 */
+.player-item:not(.player-me):hover {
+    border-left-color: var(--accent);
+    background: #2a2a2a;
+}
+
+/* =============================================
+   通用功能面板 (func-panel)
+   ============================================= */
+#func-panel {
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 14px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    animation: panelSlideIn 0.25s ease-out;
+}
+@keyframes panelSlideIn {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.func-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid #333;
+}
+.func-panel-title {
+    font-weight: bold;
+    color: var(--primary);
+    font-size: 14px;
+    letter-spacing: 0.05em;
+}
+.func-panel-close {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+    line-height: 1;
+    transition: color 0.15s, background 0.15s;
+}
+.func-panel-close:active { background: #333; color: var(--text); }
+
+.func-panel-body {
+    padding: 12px 14px 8px;
+    font-size: 14px;
+    color: var(--text);
+    min-height: 40px;
+}
+
+/* 功能選項按鈕（HOUSE 1/2/3、CAR 1/2 等）*/
+.func-option-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+.func-option-grid.two-col { grid-template-columns: repeat(2, 1fr); }
+
+.func-option-btn {
+    background: var(--btn);
+    border: 2px solid #444;
+    border-radius: 10px;
+    color: var(--text);
+    padding: 10px 4px;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.4;
+    transition: border-color 0.15s, background 0.15s;
+}
+.func-option-btn:active { transform: scale(0.96); }
+.func-option-btn.selected {
+    border-color: var(--primary);
+    background: rgba(212,175,55,0.12);
+    color: var(--primary);
+}
+.func-option-btn.sell-option {
+    border-color: #444;
+    color: var(--danger);
+}
+
+/* 動作按鈕列 */
+.func-panel-actions {
+    display: flex;
+    gap: 8px;
+    padding: 8px 14px 12px;
+    justify-content: flex-end;
+}
+.func-action-btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.func-action-btn.confirm { background: var(--primary); color: #000; }
+.func-action-btn.cancel  { background: #444; color: var(--text); }
+.func-action-btn.sell    { background: var(--danger); color: white; }
+.func-action-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* 數字鍵盤 */
+.func-digit-pad {
+    padding: 8px 14px 4px;
+    border-top: 1px solid #2a2a2a;
+}
+.digit-display {
+    background: var(--btn);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--primary);
+    text-align: right;
+    margin-bottom: 8px;
+    min-height: 42px;
+    letter-spacing: 0.05em;
+}
+.digit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+.digit-btn {
+    background: var(--btn);
+    border: 1px solid #333;
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: bold;
+    padding: 12px 0;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.digit-btn:active { background: #333; }
+.digit-del { color: var(--accent); font-size: 16px; }
+.digit-ok  { background: var(--primary); color: #000; font-size: 15px; }
+.digit-ok:active { background: #b8962e; }
+
+/* 狀態訊息行 */
+.func-panel-msg {
+    padding: 6px 0 2px;
+    font-size: 13px;
+    color: #ccc;
+    min-height: 22px;
+}
+.func-panel-msg.success { color: var(--pass); }
+.func-panel-msg.warn    { color: var(--accent); }
+.func-panel-msg.error   { color: var(--danger); }
+
+/* MARRIAGE / BABY 確認按鈕置中 */
+.func-panel-actions.center { justify-content: center; }
