@@ -16,7 +16,7 @@
    基礎 / 捲軸
    ============================================= */
 body {
-    font-family: 'Papyrus', system-ui;
+    font-family: 'Share Tech Mono', system-ui;
     margin: 0;
     background-color: var(--bg);
     color: var(--text);
@@ -252,6 +252,13 @@ body.digit-input .func-btn {
     opacity: 1;
     pointer-events: none;
     border-color: transparent;
+}
+
+/* SPIN 跳過（車輛效果）：明顯暗掉，不高亮 */
+.func-btn.spin-skip {
+    opacity: 0.25;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 /* =============================================

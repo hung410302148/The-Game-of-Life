@@ -75,6 +75,9 @@ function showGamePage(name, roomId) {
     document.getElementById('log-page').style.display   = 'none';
     document.getElementById('game-page').style.display  = 'flex';
     document.querySelector('#welcome-msg-name').innerText = name;
+    // 退出按鈕顯示房間號
+    const leaveBtnEl = document.getElementById('leaveBtn');
+    if (leaveBtnEl) leaveBtnEl.innerText = '退出 [' + roomId + '] 遊戲';
     listenToMyStatus(name, roomId);
     listenAllPlayers_NEW(roomId);
     listenGameStatus_NEW();
@@ -108,14 +111,20 @@ function listenToMyStatus(name, roomId) {
         const h = data.house ?? {};
         const houseList = [h.small && '小', h.medium && '中', h.luxury && '豪'].filter(Boolean);
         document.getElementById('status-house').innerText = houseList.length ? houseList.join('/') : '無';
-        // car
+        // car：顯示「轎/豪」順序（先轎後豪）
         const car = data.car ?? {};
         const carSlots = [car.car1, car.car2].filter(c => c && c.type);
         if (carSlots.length === 0) {
             document.getElementById('status-car').innerText = '無';
         } else {
-            document.getElementById('status-car').innerText = carSlots.map(c => {
-                if (c.type === 'luxury') return (c.age ?? 0) >= 15 ? '古董' : '豪車';
+            // 先轎後豪排序
+            const sorted = [...carSlots].sort((a, b) => {
+                if (a.type === 'sedan' && b.type !== 'sedan') return -1;
+                if (a.type !== 'sedan' && b.type === 'sedan') return 1;
+                return 0;
+            });
+            document.getElementById('status-car').innerText = sorted.map(c => {
+                if (c.type === 'luxury') return (c.age ?? 0) >= 15 ? '古董' : '豪';
                 return '轎';
             }).join('/');
         }
@@ -253,8 +262,8 @@ function activateAdjust(target) {
         label + ' 調整',
         '<div class="func-panel-msg" id="adj-msg">先按 ＋ 或 − 選擇方向</div>' +
         '<div class="func-panel-actions center" style="padding:8px 0 4px;">' +
-            '<button class="func-action-btn confirm" id="adj-plus-btn" style="font-size:20px;padding:8px 20px;">＋</button>' +
-            '<button class="func-action-btn sell" id="adj-minus-btn" style="font-size:20px;padding:8px 20px;">−</button>' +
+            '<button class="func-action-btn confirm" id="adj-plus-btn" style="font-size:22px;padding:8px 20px;min-width:70px;line-height:1;">+</button>' +
+            '<button class="func-action-btn sell" id="adj-minus-btn" style="font-size:22px;padding:8px 20px;min-width:70px;line-height:1;">-</button>' +
         '</div>',
         '',
         false  // digit pad hidden initially
@@ -318,15 +327,19 @@ document.querySelectorAll('.func-btn').forEach(btn => {
 
         // 舊版 HOUSE/CAR/DEGREE func-btn 攔截已移至 func-panel
 
+        const funcName = btn.querySelector('.func-label') ? btn.querySelector('.func-label').innerText.trim() : '';
+
         if (btn.classList.contains('func-active')) return;
         clearFuncActive();
-        btn.classList.add('func-active');
+        // LOTTERY 與 LOG 不加 func-active（避免白邊框鎖住自己）
+        if (funcName !== 'LOTTERY' && funcName !== 'LOG') {
+            btn.classList.add('func-active');
+        }
         setSpinLocked(true);
         setEndTurnLocked(true);
         showSideButtons(true);
         document.getElementById('minusBtn').classList.remove('active');
         document.getElementById('plusBtn').classList.remove('active');
-        const funcName = btn.querySelector('.func-label') ? btn.querySelector('.func-label').innerText.trim() : '';
         dispatchFuncBtn(val, funcName);
     });
 });
@@ -371,8 +384,12 @@ function dispatchFuncBtn(val, funcName) {
             });
             break;
         case 'LOG':
-            // 不改 activeFuncMode，讓 LOTTERY 等功能繼續；只顯示 LOG 頁
+            // LOG 不加 func-active（避免白邊框導致自己鎖住）
             showLogPage();
+            // 把 LOG btn 的 func-active 移除（不讓它保持白邊框）
+            document.querySelectorAll('.func-btn').forEach(b => {
+                if (b.getAttribute('data-val') === '9') b.classList.remove('func-active');
+            });
             break;
         case 'MARRIAGE':
             activeFuncMode = 'MARRIAGE'; initMarriage(); break;
@@ -1237,19 +1254,25 @@ async function execChanceSpin_panel() {
     const startBtn = document.getElementById('chance-start-btn');
     if (startBtn) { startBtn.disabled = true; startBtn.innerText = '抽獎中...'; }
 
-    const resultIdx = Math.floor(Math.random() * 3); // 0, 1, 2
+    const resultIdx = Math.floor(Math.random() * 3); // 0, 1, 2（等機率）
     const ids = ['chance-r0', 'chance-r1', 'chance-r2'];
 
-    // 跑馬燈動畫（在三個圓形之間）
-    let cur = 0; let delay = 80;
-    const totalSteps = 20 + resultIdx;
+    // 往右跑：永遠從 0→1→2→0→1→2...，慢下來停在 resultIdx
+    // 至少跑完 2 圈後停在目標，不往左跳
+    const fullRounds = 2;
+    const totalSteps = fullRounds * 3 + resultIdx + 1; // 停在 resultIdx
+    let cur = 0;
+    let delay = 80;
+
     for (let i = 0; i < totalSteps; i++) {
         ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.borderColor = '#555'; });
-        const el = document.getElementById(ids[cur]);
+        const el = document.getElementById(ids[cur % 3]);
         if (el) el.style.borderColor = 'var(--accent)';
-        if (i > totalSteps - 6) delay += 80;
+        // 最後 5 步開始減速
+        if (i >= totalSteps - 5) delay += 120;
+        else if (i >= totalSteps - 8) delay += 40;
         await new Promise(r => setTimeout(r, delay));
-        cur = (cur + 1) % 3;
+        cur++;
     }
     ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.borderColor = '#555'; });
     const winEl = document.getElementById(ids[resultIdx]);
@@ -1398,11 +1421,27 @@ async function execLotterySpin() {
     const lottery = snap.val();
     if (!lottery) return;
 
-    const numBtns = Array.from(document.querySelectorAll('.lottery-num-btn'));
-    const winNum  = Math.floor(Math.random() * lottery.M) + 1;
-    const targetIdx = numBtns.findIndex(b => parseInt(b.dataset.num) === winNum);
+    // 重置所有號碼狀態：selected-num 保持橘色，其他恢復白色 active
+    document.querySelectorAll('.lottery-num-btn').forEach(b => {
+        b.classList.remove('lottery-winner', 'lottery-highlight', 'num-taken');
+        b.disabled = false;
+        // 非自己選的號碼恢復白色
+        if (!b.classList.contains('selected-num')) {
+            b.style.borderColor = '';
+            b.style.color = '';
+            b.style.background = '';
+        }
+    });
+    document.getElementById('lottery-confirm-btn')?.remove();
+    document.getElementById('lottery-start-btn') && (document.getElementById('lottery-start-btn').innerText = '開獎中...');
 
-    // 動畫：從 1 到 M 順序掃描（至少跑 2 圈，再慢下來停在 winNum）
+    const winNum = Math.floor(Math.random() * lottery.M) + 1;
+
+    // 先寫入 Firebase（ANIMATING phase）讓非發起者也開始跑動畫
+    await update(ref(db, `rooms/${roomId}/lottery`), { winnerNumbers: winNum, phase: 'ANIMATING' });
+
+    const numBtns = Array.from(document.querySelectorAll('.lottery-num-btn'));
+    const targetIdx = numBtns.findIndex(b => parseInt(b.dataset.num) === winNum);
     const rounds = 2;
     const totalSteps = numBtns.length * rounds + targetIdx + 1;
     let delay = 40;
@@ -1411,26 +1450,26 @@ async function execLotterySpin() {
         const curIdx = i % numBtns.length;
         numBtns.forEach(b => b.classList.remove('lottery-highlight'));
         numBtns[curIdx].classList.add('lottery-highlight');
-        // 最後 15 步開始減速
         if (i > totalSteps - 15) delay += 50;
         else if (i > totalSteps - 30) delay += 15;
         await new Promise(r => setTimeout(r, delay));
     }
 
-    // 停止：清高亮，開獎號碼亮紅燈，個人號碼保持金色
     numBtns.forEach(b => b.classList.remove('lottery-highlight'));
     if (numBtns[targetIdx]) numBtns[targetIdx].classList.add('lottery-winner');
-    // 個人選的號碼繼續亮（selected-num 不移除）
 
-    await update(ref(db, `rooms/${roomId}/lottery`), { winnerNumbers: winNum, phase: 'DONE' });
+    // 動畫完成，寫入 DONE
+    await update(ref(db, `rooms/${roomId}/lottery`), { phase: 'DONE' });
 }
 
-// 防止 displayLotteryResult 被重複呼叫
 let _lotteryResultHandled = false;
+let _lotteryResultWinNum = null; // 記錄上次處理的號碼，防重複
 
 async function displayLotteryResult(lottery, myName, roomId) {
-    if (_lotteryResultHandled) return;
+    // 防重複：同一個 winnerNumbers 只處理一次
+    if (_lotteryResultHandled && _lotteryResultWinNum === lottery.winnerNumbers) return;
     _lotteryResultHandled = true;
+    _lotteryResultWinNum = lottery.winnerNumbers;
 
     const picks  = lottery.picks ?? {};
     const winNum = lottery.winnerNumbers;
@@ -1449,18 +1488,24 @@ async function displayLotteryResult(lottery, myName, roomId) {
         const wRef = ref(db, `rooms/${roomId}/players/${winnerName}`);
         const wSnap = await get(wRef);
         await update(wRef, { balance: (wSnap.val()?.balance ?? 0) + pot });
-        addLog(roomId, myName, '🎰 大樂透開獎！號碼：' + winNum + '　中獎：' + winnerName + ' +' + formatMoney(pot));
+        // 只有發起者寫 LOG，避免所有玩家都寫
+        if (myName === lottery.initiator) {
+            addLog(roomId, myName, '🎰 大樂透開獎！號碼：' + winNum + '　中獎：' + winnerName + ' +' + formatMoney(pot));
+        }
         document.getElementById('lottery-info').innerText =
             winnerName === myName ? '🎉 恭喜你中獎！+' + formatMoney(pot) : '🎉 恭喜 ' + winnerName + ' 中獎！+' + formatMoney(pot);
 
-        // 發起者顯示確認鍵
-        if (myName === lottery.initiator) {
+        // 發起者顯示確認鍵（只加一次）
+        if (myName === lottery.initiator && !document.getElementById('lottery-confirm-btn')) {
             const confirmBtn = document.createElement('button');
+            confirmBtn.id = 'lottery-confirm-btn';
             confirmBtn.innerText = '✓ 確認結束 LOTTERY';
             confirmBtn.style.cssText = 'display:block;margin:10px auto;padding:8px 20px;background:var(--pass);color:#000;border:none;border-radius:8px;font-size:14px;cursor:pointer;';
             confirmBtn.addEventListener('click', async () => {
-                await update(ref(db, `rooms/${roomId}/lottery`), { active: false });
+                confirmBtn.remove(); // 立即移除按鈕
                 _lotteryResultHandled = false;
+                _lotteryResultWinNum = null;
+                await update(ref(db, `rooms/${roomId}/lottery`), { active: false });
             });
             document.getElementById('lottery-numbers').after(confirmBtn);
         }
@@ -1468,13 +1513,18 @@ async function displayLotteryResult(lottery, myName, roomId) {
         const bonus = 1.2 + Math.random() * 0.4;
         lotteryMultiplier *= bonus;
         const newPot = Math.round(pot * bonus);
-        addLog(roomId, myName, '🎰 大樂透開獎！號碼：' + winNum + '　無人中獎，獎金加碼 → ' + formatMoney(newPot));
+        // 只有發起者寫 LOG
+        if (myName === lottery.initiator) {
+            addLog(roomId, myName, '🎰 大樂透開獎！號碼：' + winNum + '　無人中獎，獎金加碼 → ' + formatMoney(newPot));
+        }
         // 不重置 picks，保留每人選的號碼；僅重置 phase 讓 START 按鈕重新出現
         _lotteryResultHandled = false;
         // 移除已選號碼的鎖定（讓畫面保持可見但 START 觸發下一輪）
         await update(ref(db, `rooms/${roomId}/lottery`), { pot: newPot, phase: 'SPIN', winnerNumbers: null });
         document.getElementById('lottery-pot').innerText = '🎰 獎金 ' + formatMoney(newPot);
-        document.getElementById('lottery-info').innerText = '😱 沒人中獎！獎金加碼 → ' + formatMoney(newPot) + '，再按 START 開獎';
+        // 無人中獎後回到 SPIN phase，START 按鈕會由監聽重建，更新說明文字
+        // 注意：phase 已設為 'SPIN'，listenGameStatus_NEW 會更新 lottery-info
+        document.getElementById('lottery-info').innerText = '😱 無人中獎！獎金加碼 → ' + formatMoney(newPot);
     }
 }
 
@@ -1543,6 +1593,9 @@ function clearFuncActive() {
 // SPIN 統一入口
 // =============================================
 document.getElementById('spinBtn').addEventListener('click', async () => {
+    // 硬性檢查：disabled 或 spin-locked 時完全不執行
+    const _sb = document.getElementById('spinBtn');
+    if (_sb.disabled || _sb.classList.contains('spin-locked') || _sb.classList.contains('spin-done')) return;
     if (isSpinning) return;
 
     if (activeFuncMode === 'CHANCE' && chancePhase === 'SPIN') {
@@ -1588,6 +1641,9 @@ document.getElementById('spinBtn').addEventListener('click', async () => {
     const roomId_s = myRoom();
     const name_s   = myName();
 
+    // SPIN 開始：鎖住結束回合，避免誤觸
+    setEndTurnLocked(true);
+
     // 在跑動畫前先做回合財產結算
     await onSpinPressed_turnCalc();
 
@@ -1597,39 +1653,62 @@ document.getElementById('spinBtn').addEventListener('click', async () => {
     // 生成 1~10 的隨機數，跳過指定步數
     let pool = [1,2,3,4,5,6,7,8,9,10].filter(n => !skips.includes(n));
     const result = pool[Math.floor(Math.random() * pool.length)];
-    await runAdvancedSpin(result);
+    await runAdvancedSpin(result, skips); // 傳入 skipVals，SPIN 動畫跳過這些
     isSpinning = false;
     setFuncBtnsLocked(false);
     spinBtn.classList.remove('spin-spinning');
     spinBtn.classList.add('spin-done');
     spinBtn.disabled = true;
     addLog(roomId_s, name_s, 'SPIN → ' + result);
+    // SPIN 完成後解鎖結束回合
+    setEndTurnLocked(false);
 });
 
-async function runAdvancedSpin(targetValue) {
-    const btns = Array.from(document.querySelectorAll('.func-btn'));
-    const targetIndex = btns.findIndex(b => b.dataset.val == targetValue);
-    // 只跑 1.5 圈 + 停在目標：步數較少，初始速度較慢，可以看清楚
-    const totalSteps = 10 + (btns.length) + targetIndex;
-    let currentIndex = 0;
-    let delay = 120; // 初始較慢，可以看清楚
+async function runAdvancedSpin(targetValue, skipVals = []) {
+    const allBtns = Array.from(document.querySelectorAll('.func-btn'));
+
+    // 標記跳過的按鈕（暗掉）
+    allBtns.forEach(b => {
+        b.classList.remove('spin-skip', 'highlight', 'light-on');
+        if (skipVals.includes(parseInt(b.dataset.val))) {
+            b.classList.add('spin-skip');
+        }
+    });
+
+    // 只用「有效按鈕」（非 skip）跑動畫
+    const activeBtns = allBtns.filter(b => !b.classList.contains('spin-skip'));
+    const targetBtn  = allBtns.find(b => b.dataset.val == targetValue);
+    const targetActiveIdx = activeBtns.indexOf(targetBtn);
+
+    if (targetActiveIdx === -1) {
+        // 目標被 skip 了（不應該發生），直接亮起
+        allBtns.forEach(b => b.classList.remove('spin-skip'));
+        if (targetBtn) targetBtn.classList.add('light-on');
+        return;
+    }
+
+    // totalSteps：至少跑 1.5 圈有效格子，再停在目標
+    const rounds = 2;
+    const totalSteps = activeBtns.length * rounds + targetActiveIdx + 1;
+    let delay = 120;
 
     for (let i = 0; i < totalSteps; i++) {
-        btns.forEach(b => b.classList.remove('highlight'));
-        btns[currentIndex].classList.add('highlight');
+        const curActive = i % activeBtns.length;
+        activeBtns.forEach(b => b.classList.remove('highlight'));
+        activeBtns[curActive].classList.add('highlight');
 
-        // 前半段：慢 → 中速；後段：減速
-        if (i < 5) delay = 120;
-        else if (i < 10) delay = 80;
-        else if (i > totalSteps - 8) delay += 55;
-        else if (i > totalSteps - 15) delay += 20;
-        else delay = 60;
+        if (i < 5)                        delay = 120;
+        else if (i < 10)                  delay = 80;
+        else if (i > totalSteps - 8)      delay += 55;
+        else if (i > totalSteps - 15)     delay += 20;
+        else                              delay = 60;
 
         await new Promise(r => setTimeout(r, delay));
-        currentIndex = (currentIndex + 1) % btns.length;
     }
-    btns.forEach(b => b.classList.remove('highlight', 'light-on'));
-    btns[targetIndex].classList.add('light-on');
+
+    // 結束：清所有狀態，只亮目標
+    allBtns.forEach(b => b.classList.remove('highlight', 'light-on', 'spin-skip'));
+    targetBtn.classList.add('light-on');
 }
 
 // =============================================
@@ -1651,8 +1730,10 @@ document.getElementById('endTurnBtn').addEventListener('click', async () => {
     spinBtn.classList.remove('spin-done', 'spin-locked', 'spin-spinning');
     spinBtn.disabled = false;
 
+    // 立即鎖住結束回合（下一位拿到控制權後會自動解鎖）
+    setEndTurnLocked(true);
     await endTurn_NEW();
-    document.getElementById('turn-indicator').innerText = '回合結束，等待下一位...';
+    // turn-indicator 由 listenGameStatus_NEW 自動更新，不需要手動設
 });
 
 // =============================================
@@ -1823,10 +1904,24 @@ function _OLD_listenGameStatus_unused() {
 // =============================================
 // 監聽所有玩家
 // =============================================
+function refreshPlayerList() {
+    // 強制重繪玩家列表（不重新監聽，只更新 ← 標記）
+    document.querySelectorAll('.player-item').forEach(item => {
+        const nameEl = item.querySelector('strong');
+        if (!nameEl) return;
+        const pName = nameEl.innerText;
+        const isCurrent = (window._currentTurn === pName);
+        const isMe = item.classList.contains('player-me');
+        const prefix = isMe ? '⭐ ' : '👤 ';
+        const span = nameEl.closest('span');
+        if (span) span.innerHTML = prefix + '<strong>' + pName + '</strong>' + (isCurrent ? ' ←' : '');
+    });
+}
+
 function listenAllPlayers(roomId) { listenAllPlayers_NEW(roomId); }
 function listenAllPlayers_NEW(roomId) {
-    onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
-        const players = snapshot.val();
+    // 同時監聽 players 和 status，確保 ← 永遠正確
+    function renderPlayers(players, currentCtrl) {
         const listDiv = document.getElementById('other-players-list');
         if (!listDiv) return;
         listDiv.innerHTML = "";
@@ -1835,15 +1930,30 @@ function listenAllPlayers_NEW(roomId) {
         Object.values(players).forEach(p => {
             if (p.isVisible !== true) return;
             const isMe = p.name === me;
+            const isCurrent = (currentCtrl === p.name);
             const item = document.createElement('div');
             item.className = 'player-item' + (isMe ? ' player-me' : '');
             item.style.cursor = isMe ? 'default' : 'pointer';
-            // 由 status 決定誰是當前操作者（在渲染時從快取拿）
-            const isCurrent = (window._currentTurn === p.name);
-            item.innerHTML = '<span>' + (isCurrent ? '🎮 ' : isMe ? '⭐ ' : '👤 ') + '<strong>' + p.name + '</strong>' + (isCurrent ? ' ←' : '') + '</span>' +
+            item.innerHTML = '<span>' + (isMe ? '⭐ ' : '👤 ') + '<strong>' + p.name + '</strong>' + (isCurrent ? ' ←' : '') + '</span>' +
                 '<span>💰 ' + (p.balance ?? 0) + ' &nbsp;|&nbsp; ❤️ ' + (p.lifeValue ?? 0) + '</span>';
             listDiv.appendChild(item);
         });
+    }
+
+    let _cachedPlayers = null;
+    let _cachedCtrl = window._currentTurn ?? null;
+
+    onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
+        _cachedPlayers = snapshot.val();
+        renderPlayers(_cachedPlayers, _cachedCtrl);
+    });
+
+    onValue(ref(db, `rooms/${roomId}/status`), (snapshot) => {
+        const status = snapshot.val();
+        if (!status) return;
+        _cachedCtrl = status.tempController ?? status.currentTurn;
+        window._currentTurn = _cachedCtrl;
+        renderPlayers(_cachedPlayers, _cachedCtrl);
     });
 }
 
@@ -1859,6 +1969,8 @@ async function addLog(roomId, name, message) {
 
 function showLogPage() {
     // 不 resetOperation，保留 LOTTERY 等狀態
+    // 進入 LOG 前先隱藏 side-btn（UNDO/ENTER）
+    showSideButtons(false);
     document.getElementById('game-page').style.display = 'none';
     document.getElementById('log-page').style.display  = 'flex';
     const roomId  = localStorage.getItem('lifeGame_myRoomId');
@@ -1879,13 +1991,24 @@ function showLogPage() {
 document.getElementById('logBackBtn').addEventListener('click', () => {
     document.getElementById('log-page').style.display  = 'none';
     document.getElementById('game-page').style.display = 'flex';
-    // 返回後重新套用控制權鎖定（不 resetOperation，保持操作狀態）
     const roomId = myRoom();
-    if (roomId) {
-        get(ref(db, `rooms/${roomId}/status`)).then(snap => {
-            if (snap.val()) applyControlLock(snap.val(), myName());
-        });
-    }
+    if (!roomId) return;
+    // 重新套用控制鎖（LOTTERY 進行中 → 重新鎖住；觀戰者 → 鎖住大部分）
+    get(ref(db, `rooms/${roomId}/status`)).then(snap => {
+        if (snap.val()) applyControlLock(snap.val(), myName());
+    });
+    // 若 LOTTERY 進行中，重新執行 func-btn 鎖定
+    get(ref(db, `rooms/${roomId}/lottery`)).then(snap => {
+        const lottery = snap.val();
+        if (lottery?.active) {
+            document.querySelectorAll('.func-btn').forEach(b => {
+                if (b.getAttribute('data-val') === '9') b.classList.remove('house-dim');
+                else b.classList.add('house-dim');
+            });
+        }
+    });
+    // 移除 LOG btn 的 func-active 白邊框（LOG 不該保持高亮）
+    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('func-active'));
 });
 
 // =============================================
@@ -1922,6 +2045,7 @@ async function registerPlayerOrder(roomId, name) {
         await update(statusRef, { playerOrder: order });
         // 第一位玩家：給他遊戲控制權，設 phase=WAITING（等設定 YEARS）
         if (order.length === 1) {
+            window._currentTurn = name; // 本地立即更新 ← 符號
             await update(statusRef, {
                 currentTurn: name,
                 firstPlayer: name,
@@ -1949,30 +2073,27 @@ function listenGameStatus_NEW() {
         hasControl = (ctrl === me);
         isTempControl = (status.tempController === me);
         window._currentTurn = ctrl; // 給玩家列表用
+        // status 更新時強制重繪玩家列表（確保 ← 符號一致）
+        refreshPlayerList();
 
         // 更新 UI 控制鎖
         applyControlLock(status, me);
 
         // turn-indicator 文字
         const ind = document.getElementById('turn-indicator');
-        if (status.phase === 'WAITING') {
-            if (hasControl) {
-                ind.innerText = '⚙️ 請先用 YEARS 設定回合數再按 SPIN';
-            } else {
-                ind.innerText = '等待 ' + (status.firstPlayer ?? ctrl) + ' 設定遊戲回合數...';
-            }
-        } else if (status.phase === 'SETTLEMENT') {
-            ind.innerText = hasControl ? '🏁 結算階段，請按 SPIN 開始結算' : '等待 ' + ctrl + ' 結算中...';
+        // turn-indicator 永遠顯示誰的回合
+        if (status.phase === 'SETTLEMENT') {
+            ind.innerText = hasControl ? '🏁 ' + myName() + ' 的結算' : ctrl + ' 結算中...';
         } else if (status.phase === 'FINAL') {
             ind.innerText = '🎉 遊戲結束！';
+            // 所有玩家同時顯示排行榜
+            showFinalRanking();
+        } else if (hasControl && isTempControl) {
+            ind.innerText = '🔄 ' + myName() + ' 暫時控制中';
+        } else if (hasControl) {
+            ind.innerText = '★ ' + myName() + ' 的回合';
         } else {
-            if (hasControl && isTempControl) {
-                ind.innerText = '🔄 暫時控制中（限金錢/人生值調整）';
-            } else if (hasControl) {
-                ind.innerText = '★ ' + myName() + ' 的回合';
-            } else {
-                ind.innerText = ctrl + ' 的回合';
-            }
+            ind.innerText = ctrl + ' 的回合';
         }
 
         // 顯示 years（從 status 讀，是房間共通的）
@@ -1983,17 +2104,50 @@ function listenGameStatus_NEW() {
         document.body.classList.toggle('active-turn', hasControl);
     });
 
-    // 監聽 lottery（保持原有）
+    // 監聽 lottery（所有玩家）
     onValue(ref(db, `rooms/${roomId}/lottery`), async (snap) => {
         const lottery = snap.val();
         const me = myName();
         if (!lottery?.active) {
             document.getElementById('lottery-panel').style.display = 'none';
-            document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('house-dim'));
+            // 移除 X 按鈕，讓下次重新建立
+            document.getElementById('lottery-close-btn')?.remove();
+            // lottery 結束後重新套用控制鎖（恢復原本狀態）
+            get(ref(db, `rooms/${roomId}/status`)).then(ss => {
+                if (ss.val()) applyControlLock(ss.val(), me);
+            });
+            if (activeFuncMode === 'LOTTERY') {
+                activeFuncMode = null;
+                clearFuncActive();
+            }
             return;
         }
         document.getElementById('lottery-panel').style.display = 'block';
         document.getElementById('lottery-pot').innerText = '🎰 獎金 ' + formatMoney(Math.round(lottery.pot));
+
+        // X 關閉按鈕（每次都重建，避免殘留）
+        const existingClose = document.getElementById('lottery-close-btn');
+        if (!existingClose) {
+            const closeBtn = document.createElement('button');
+            closeBtn.id = 'lottery-close-btn';
+            closeBtn.innerText = '✕';
+            closeBtn.style.cssText = 'position:absolute;top:8px;right:10px;background:none;border:none;color:#888;font-size:16px;cursor:pointer;z-index:10;';
+            closeBtn.addEventListener('click', () => {
+                if (lottery.initiator === me) {
+                    if (confirm('確定關閉大樂透？')) {
+                        update(ref(db, `rooms/${roomId}/lottery`), { active: false });
+                        addLog(roomId, me, 'LOTTERY 手動關閉');
+                    }
+                } else {
+                    alert('只有發起者可關閉大樂透');
+                }
+            });
+            const lp = document.getElementById('lottery-panel');
+            lp.style.position = 'relative';
+            lp.appendChild(closeBtn);
+        }
+
+        // LOTTERY 期間：所有 func-btn 鎖住，只留 LOG（9）
         document.querySelectorAll('.func-btn').forEach(b => {
             if (b.getAttribute('data-val') === '9') b.classList.remove('house-dim');
             else b.classList.add('house-dim');
@@ -2045,7 +2199,13 @@ function listenGameStatus_NEW() {
             }
         }
         if (lottery.phase === 'SPIN' && isInitiator) {
-            document.getElementById('lottery-info').innerText = '所有人已選號！按 START 開獎';
+            // 有 winnerNumbers 表示剛加碼（上一輪已開過），否則是第一次
+            const prevWin = lottery.winnerNumbers;
+            if (prevWin == null) {
+                document.getElementById('lottery-info').innerText = '所有人已選號！按 START 開獎';
+            } else {
+                document.getElementById('lottery-info').innerText = '無人中獎，獎金加碼 → ' + formatMoney(lottery.pot) + '，按 START 再次開獎';
+            }
             // 加入 START 按鈕
             if (!document.getElementById('lottery-start-btn')) {
                 const startBtn = document.createElement('button');
@@ -2059,6 +2219,50 @@ function listenGameStatus_NEW() {
                 document.getElementById('lottery-numbers').after(startBtn);
             }
             if (activeFuncMode !== 'LOTTERY') activeFuncMode = 'LOTTERY';
+        }
+        // ANIMATING：非發起者也跑動畫（發起者自己跑，非發起者由 Firebase 觸發）
+        if (lottery.phase === 'ANIMATING' && lottery.winnerNumbers != null) {
+            const me2 = myName();
+            const isInit2 = lottery.initiator === me2;
+            if (!isInit2) {
+                // 非發起者：在自己的裝置上跑動畫
+                const numBtns = Array.from(document.querySelectorAll('.lottery-num-btn'));
+                // 先把號碼恢復白色（active 狀態）
+                numBtns.forEach(b => {
+                    b.classList.remove('lottery-winner', 'lottery-highlight', 'num-taken');
+                    if (!b.classList.contains('selected-num')) b.style.borderColor = '';
+                    b.disabled = false;
+                });
+                const winNum2 = lottery.winnerNumbers;
+                const targetIdx2 = numBtns.findIndex(b => parseInt(b.dataset.num) === winNum2);
+                const rounds2 = 2;
+                const totalSteps2 = numBtns.length * rounds2 + targetIdx2 + 1;
+                let delay2 = 40;
+                (async () => {
+                    for (let i = 0; i < totalSteps2; i++) {
+                        const curIdx2 = i % numBtns.length;
+                        numBtns.forEach(b => b.classList.remove('lottery-highlight'));
+                        numBtns[curIdx2].classList.add('lottery-highlight');
+                        if (i > totalSteps2 - 15) delay2 += 50;
+                        else if (i > totalSteps2 - 30) delay2 += 15;
+                        await new Promise(r => setTimeout(r, delay2));
+                    }
+                    numBtns.forEach(b => b.classList.remove('lottery-highlight'));
+                    if (numBtns[targetIdx2]) numBtns[targetIdx2].classList.add('lottery-winner');
+                })();
+            }
+        }
+        // DONE：紅框由動畫結束後顯示（ANIMATING 跑完後才到 DONE）
+        if (lottery.phase === 'DONE') {
+            const numBtns = Array.from(document.querySelectorAll('.lottery-num-btn'));
+            const winNum = lottery.winnerNumbers;
+            if (winNum != null) {
+                const targetBtn = numBtns.find(b => parseInt(b.dataset.num) === winNum);
+                if (targetBtn && !targetBtn.classList.contains('lottery-winner')) {
+                    numBtns.forEach(b => b.classList.remove('lottery-highlight'));
+                    targetBtn.classList.add('lottery-winner');
+                }
+            }
         }
         if (lottery.phase === 'DONE' && lottery.winnerNumbers != null) displayLotteryResult(lottery, me, roomId);
     });
@@ -2085,24 +2289,46 @@ function applyControlLock(status, me) {
     // 有控制權：解鎖
     lockAllUI(false);
 
-    // 暫時控制：只能調整金錢/人生值，func-btn 全 dim（LOG 保留）
+    // 未 SPIN 前鎖住結束回合（SPIN 完成後由 spin handler 解鎖）
+    const spinDone = document.getElementById('spinBtn')?.classList.contains('spin-done');
+    if (!spinDone) {
+        document.getElementById('endTurnBtn').disabled = true;
+        document.getElementById('endTurnBtn').classList.add('btn-locked');
+    }
+
+    // 暫時控制：只能調整金錢/人生值、LOG、結束回合
     if (isTemp) {
         document.querySelectorAll('.func-btn').forEach(b => {
             if (b.getAttribute('data-val') === '9') b.classList.remove('house-dim');
             else b.classList.add('house-dim');
         });
         setSpinLocked(true);
+        // UNDO 按鈕不顯示（暫時控制只能用結束回合交回）
+        showSideButtons(false);
+        // 結束回合解鎖（暫時控制可按結束回合交回）
+        document.getElementById('endTurnBtn').disabled = false;
+        document.getElementById('endTurnBtn').classList.remove('btn-locked');
         return;
     }
 
     // WAITING phase：不再限制任何操作
 
-    // SETTLEMENT phase
+    // SETTLEMENT phase：SPIN 亮（用來觸發結算），endTurn 暗（結算後才亮）
     if (phase === 'SETTLEMENT') {
         document.querySelectorAll('.func-btn').forEach(b => b.classList.add('house-dim'));
         const logBtn = document.querySelector('.func-btn[data-val="9"]');
         if (logBtn) logBtn.classList.remove('house-dim');
-        setSpinLocked(false); // SPIN 用來觸發結算動畫
+        // 若 spin-done 表示已結算，SPIN 保持暗，endTurn 亮
+        const alreadySettled = document.getElementById('spinBtn')?.classList.contains('spin-done');
+        if (alreadySettled) {
+            setSpinLocked(true);
+            document.getElementById('endTurnBtn').disabled = false;
+            document.getElementById('endTurnBtn').classList.remove('btn-locked');
+        } else {
+            setSpinLocked(false); // 尚未結算，SPIN 可按
+            document.getElementById('endTurnBtn').disabled = true;
+            document.getElementById('endTurnBtn').classList.add('btn-locked');
+        }
         return;
     }
 }
@@ -2203,15 +2429,27 @@ async function endTurn_NEW() {
             });
             addLog(roomId, name, '遊戲年數歸零，進入結算！'); return;
         }
+        window._currentTurn = nextPlayer;
         await update(ref(db, `rooms/${roomId}/status`), {
             currentTurn: nextPlayer, years: newYears,
             round: (status.round ?? 0) + 1
         });
         addLog(roomId, name, '回合結束，years → ' + newYears + '，輪到 ' + nextPlayer);
     } else {
+        window._currentTurn = nextPlayer; // 立即更新本地，讓 ← 馬上變
         await update(ref(db, `rooms/${roomId}/status`), { currentTurn: nextPlayer });
         addLog(roomId, name, '回合結束，輪到 ' + nextPlayer);
     }
+    // 更新玩家列表的 ← 符號
+    document.querySelectorAll('.player-item strong').forEach(el => {
+        const name_el = el.innerText;
+        const arrow = el.parentElement.querySelector('← ') ?? el.nextSibling;
+        const isNowCurrent = (name_el === window._currentTurn);
+        const span = el.closest('span');
+        if (span) {
+            span.innerHTML = (span.innerHTML.includes('⭐') ? '⭐ ' : '👤 ') + '<strong>' + name_el + '</strong>' + (isNowCurrent ? ' ←' : '');
+        }
+    });
 }
 
 // =============================================
@@ -2279,10 +2517,28 @@ async function runSettlement() {
     }
 
     const totalBalance = (data.balance ?? 0) + liquidated;
-    // 金錢轉換人生值：每 $80~$120 = 1 人生值
-    const rate = 80 + Math.floor(Math.random() * 41); // 80~120
+
+    // 取得或建立本局唯一轉換比例（存在 status.settlementRate）
+    const statusSnap2 = await get(ref(db, `rooms/${roomId}/status`));
+    const status2 = statusSnap2.val() ?? {};
+    let rate = status2.settlementRate;
+    if (!rate) {
+        rate = 80 + Math.floor(Math.random() * 41); // 80~120，只產生一次
+        await update(ref(db, `rooms/${roomId}/status`), { settlementRate: rate });
+    }
+
     const lifeFromMoney = totalBalance > 0 ? Math.floor(totalBalance / rate) : 0;
     const finalLife = (data.lifeValue ?? 0) + lifeFromMoney;
+
+    // 先顯示資產總額，延遲後才轉換
+    document.getElementById('turn-indicator').innerText =
+        '🏁 資產：' + formatMoney(liquidated) + ' 現金：' + formatMoney(data.balance ?? 0) +
+        ' 合計：' + formatMoney(totalBalance);
+    document.getElementById('endTurnBtn').disabled = true;
+    document.getElementById('endTurnBtn').classList.add('btn-locked');
+
+    // 延遲 3 秒讓玩家看清楚資產，再轉換人生值
+    await new Promise(r => setTimeout(r, 3000));
 
     upd.balance = 0;
     upd.lifeValue = finalLife;
@@ -2291,12 +2547,15 @@ async function runSettlement() {
     await update(playerRef, upd);
 
     addLog(roomId, name, '結算：資產 ' + formatMoney(liquidated) + ' + 現金 ' + formatMoney(data.balance ?? 0) +
-        ' → 共 ' + formatMoney(totalBalance) + '，兌換率 $' + rate + '/點，人生值 +' + lifeFromMoney + ' = ' + finalLife);
+        ' → 共 ' + formatMoney(totalBalance) + '，人生值 +' + lifeFromMoney + ' = ' + finalLife);
 
     document.getElementById('turn-indicator').innerText =
-        '🏁 結算完成！資產 ' + formatMoney(liquidated) + '，人生值共 ' + finalLife + ' 點';
+        '🏁 結算完成！人生值 +' + lifeFromMoney + ' = ' + finalLife + ' 點，按結束回合';
 
-    // 顯示「結束回合」讓玩家確認
+    // 結算完成：SPIN 暗掉，結束回合亮起
+    const spinBtnS = document.getElementById('spinBtn');
+    spinBtnS.classList.add('spin-done');
+    spinBtnS.disabled = true;
     document.getElementById('endTurnBtn').disabled = false;
     document.getElementById('endTurnBtn').classList.remove('btn-locked');
 }
@@ -2324,7 +2583,9 @@ async function advanceSettlement() {
 // FINAL RANKING（結算排行榜）
 // =============================================
 async function showFinalRanking() {
+    if (document.getElementById('ranking-page').style.display === 'flex') return; // 避免重複
     document.getElementById('game-page').style.display = 'none';
+    document.getElementById('log-page').style.display = 'none';
     document.getElementById('ranking-page').style.display = 'flex';
 
     const roomId = myRoom();
@@ -2362,7 +2623,9 @@ document.getElementById('endGameBtn')?.addEventListener('click', () => {
 document.getElementById('leaveBtn').addEventListener('click', () => {
     const name   = localStorage.getItem('lifeGame_myName');
     const roomId = localStorage.getItem('lifeGame_myRoomId');
-    if (confirm("確定退出並重設嗎？")) {
+    // 按鈕文字顯示房間號碼
+    document.getElementById('leaveBtn').innerText = '退出 [' + (roomId ?? '') + '] 遊戲';
+    if (confirm("確定退出房間 [" + (roomId ?? '') + "] 嗎？")) {
         update(ref(db, `rooms/${roomId}/players/${name}`), { status: "offline", isVisible: false })
             .then(() => { localStorage.removeItem('lifeGame_myName'); localStorage.removeItem('lifeGame_myRoomId'); location.reload(); });
     }
