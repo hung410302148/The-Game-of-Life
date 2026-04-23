@@ -871,3 +871,12 @@ body.digit-input .func-btn {
 
 /* MARRIAGE / BABY 確認按鈕置中 */
 .func-panel-actions.center { justify-content: center; }
+
+/* =============================================
+   煙火特效動畫
+   ============================================= */
+@keyframes fw-particle {
+    0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+    80%  { opacity: 0.6; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+}

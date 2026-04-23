@@ -5,7 +5,6 @@ import { db, ref, set, onValue, update, get, push } from './firebase.js';
 // 音效系統
 // =============================================
 const _audio = {
-    //bgm:  null,
     spin: null,
     coin: null,
     _loaded: false,
@@ -13,21 +12,17 @@ const _audio = {
     init() {
         if (this._loaded) return;
         this._loaded = true;
-        //this.bgm  = new Audio('./BGM.mp3');
-        this.spin = new Audio('./SPIN.mp3');
-        this.coin = new Audio('./COIN.mp3');
-        //this.bgm.loop   = true;
-        //this.bgm.volume = 0.2;
-        this.spin.volume = 1;
-        this.coin.volume = 0.8;
+        this.spin     = new Audio('./SPIN.mp3');
+        this.coin     = new Audio('./COIN.mp3');
+        this.carHonk  = new Audio('./CAR_HONK.mp3');
+        this.sportCar = new Audio('./SPORT_CAR.mp3');
+        this.marriage = new Audio('./MARRIAGE.mp3');
+        this.spin.volume     = 0.7;
+        this.coin.volume     = 0.8;
+        this.carHonk.volume  = 0.9;
+        this.sportCar.volume = 0.9;
+        this.marriage.volume = 1.0;
     },
-
-    // playBGM() {
-    //     this.init();
-    //     if (!this.bgm) return;
-    //     this.bgm.currentTime = 0;
-    //     this.bgm.play().catch(() => {});
-    // },
 
     playSpin() {
         this.init();
@@ -41,6 +36,33 @@ const _audio = {
         if (!this.coin) return;
         this.coin.currentTime = 0;
         this.coin.play().catch(() => {});
+    },
+
+    playCarHonk() {
+        this.init();
+        if (!this.carHonk) return;
+        this.carHonk.currentTime = 0;
+        this.carHonk.play().catch(() => {});
+    },
+
+    playSportCar() {
+        this.init();
+        if (!this.sportCar) return;
+        this.sportCar.currentTime = 0;
+        this.sportCar.play().catch(() => {});
+    },
+
+    // 結婚音效：播放完 17 秒後 resolve
+    playMarriage() {
+        this.init();
+        return new Promise(resolve => {
+            if (!this.marriage) { resolve(); return; }
+            this.marriage.currentTime = 0;
+            this.marriage.play().catch(() => resolve());
+            this.marriage.onended = () => resolve();
+            // 最多等 18 秒作為保險
+            setTimeout(resolve, 18000);
+        });
     }
 };
 
@@ -122,8 +144,6 @@ function showGamePage(name, roomId) {
     // 退出按鈕顯示房間號
     const leaveBtnEl = document.getElementById('leaveBtn');
     if (leaveBtnEl) leaveBtnEl.innerText = '退出 [' + roomId + '] 遊戲';
-    // 播放 BGM（使用者已互動過，可以播放）
-    //_audio.playBGM();
     listenToMyStatus(name, roomId);
     listenAllPlayers_NEW(roomId);
     listenGameStatus_NEW();
@@ -452,6 +472,54 @@ function dispatchFuncBtn(val, funcName) {
 
 // MARRIAGE (init moved to func-panel below)
 
+// =============================================
+// 煙火特效
+// =============================================
+function showFireworks(show) {
+    let el = document.getElementById('fireworks-overlay');
+    if (!show) {
+        if (el) { clearInterval(el._interval); el.remove(); }
+        return;
+    }
+    if (el) return;
+    el = document.createElement('div');
+    el.id = 'fireworks-overlay';
+    el.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden;';
+    document.body.appendChild(el);
+    const iv = setInterval(() => {
+        if (!document.getElementById('fireworks-overlay')) { clearInterval(iv); return; }
+        launchFirework(el);
+    }, 350);
+    el._interval = iv;
+    launchFirework(el); // 立即發一顆
+}
+
+function launchFirework(container) {
+    const colors = ['#ffd700','#ff6b6b','#4ecdc4','#a8edea','#fed9b7','#f72585','#7209b7','#3a86ff','#ff9500'];
+    const x = 10 + Math.random() * 80;
+    const y = 10 + Math.random() * 50;
+    const count = 20 + Math.floor(Math.random() * 10);
+    for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        const angle = (i / count) * 360;
+        const dist  = 50 + Math.random() * 90;
+        const dx = Math.cos(angle * Math.PI / 180) * dist;
+        const dy = Math.sin(angle * Math.PI / 180) * dist;
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const size  = 3 + Math.random() * 4;
+        p.style.cssText =
+            'position:absolute;left:' + x + '%;top:' + y + '%;' +
+            'width:' + size + 'px;height:' + size + 'px;' +
+            'border-radius:50%;background:' + color + ';' +
+            'box-shadow:0 0 6px ' + color + ';' +
+            'animation:fw-particle 1.2s ease-out forwards;' +
+            '--dx:' + dx + 'px;--dy:' + dy + 'px;';
+        container.appendChild(p);
+        setTimeout(() => p.remove(), 1300);
+    }
+}
+
+
 async function execMarriage() {
     const roomId = localStorage.getItem('lifeGame_myRoomId');
     const name   = localStorage.getItem('lifeGame_myName');
@@ -479,7 +547,20 @@ async function execMarriage() {
     addLog(roomId, name, label + '！禮金 +' + formatMoney(totalGift) + '，人生值 +3000');
     document.getElementById('turn-indicator').innerText = '🎊 ' + label + '！+' + formatMoney(totalGift) + ' 禮金，+3000 人生值';
     cleanHouseDim();
-    setTimeout(() => resetOperation(), 2000);
+
+    // 播放結婚音效 + 煙火特效，等音樂播完才解鎖
+    // 鎖住全部 UI（func-btn、stat-box、SPIN、endTurn、op-btn）
+    lockAllUI(true);
+    document.querySelectorAll('.func-btn').forEach(b => b.classList.add('house-dim'));
+    document.getElementById('func-panel')?.style && (document.getElementById('func-panel').style.pointerEvents = 'none');
+
+    showFireworks(true);
+    await _audio.playMarriage();
+    showFireworks(false);
+
+    // 解鎖 UI
+    document.getElementById('func-panel')?.style && (document.getElementById('func-panel').style.pointerEvents = '');
+    resetOperation();
 }
 
 // =============================================
@@ -665,6 +746,8 @@ async function commitCar() {
         const label = carPending.type === 'sedan' ? '轎車' : '豪車';
         addLog(roomId, name, '購買' + label + ' (' + carPending.slot + ') -' + formatMoney(carPending.price));
         document.getElementById('turn-indicator').innerText = '🚗 購買' + label + '！';
+        if (carPending.type === 'sedan') _audio.playCarHonk();
+        else _audio.playSportCar();
     }
     carPending = null; carSellSlot = null; carSelection = null;
     cleanCarDim(); setTimeout(() => resetOperation(), 1500);
@@ -2139,17 +2222,11 @@ function listenGameStatus_NEW() {
         const me = myName();
 
         const ctrl = status.tempController ?? status.currentTurn;
-        const wasMyTurn = hasControl;
         hasControl = (ctrl === me);
         isTempControl = (status.tempController === me);
         window._currentTurn = ctrl; // 給玩家列表用
         // status 更新時強制重繪玩家列表（確保 ← 符號一致）
         refreshPlayerList();
-
-        // 輪到自己時震動提示（狀態從非控制→控制）
-        // if (hasControl && !wasMyTurn && navigator.vibrate) {
-        //     navigator.vibrate([100, 50, 100]);
-        // }
 
         // 更新 UI 控制鎖
         applyControlLock(status, me);
