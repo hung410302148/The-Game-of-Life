@@ -1,3 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
+
+/* DSEG7 Classic LCD 字型（CDN） */
+@font-face {
+    font-family: 'DSEG7Classic';
+    src: url('https://cdn.jsdelivr.net/npm/dseg@0.46.0/fonts/DSEG7-Classic/DSEG7Classic-Bold.woff2') format('woff2');
+    font-weight: bold;
+}
+
 :root {
     --primary: #d4af37;
     --bg: #000000;
@@ -158,8 +167,20 @@ header {
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
 }
 
-.money div { color: var(--pass); }
-.life div  { color: var(--life); }
+.money div {
+    color: var(--pass);
+    font-family: 'DSEG7Classic', 'Orbitron', monospace;
+    font-size: 22px !important;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(92, 209, 57, 0.5);
+}
+.life div {
+    color: var(--life);
+    font-family: 'DSEG7Classic', 'Orbitron', monospace;
+    font-size: 22px !important;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+}
 
 /* =============================================
    控制區

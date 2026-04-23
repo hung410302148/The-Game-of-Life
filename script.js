@@ -1,5 +1,49 @@
 import { db, ref, set, onValue, update, get, push } from './firebase.js';
 
+
+// =============================================
+// 音效系統
+// =============================================
+const _audio = {
+    //bgm:  null,
+    spin: null,
+    coin: null,
+    _loaded: false,
+
+    init() {
+        if (this._loaded) return;
+        this._loaded = true;
+        //this.bgm  = new Audio('./BGM.mp3');
+        this.spin = new Audio('./SPIN.mp3');
+        this.coin = new Audio('./COIN.mp3');
+        //this.bgm.loop   = true;
+        //this.bgm.volume = 0.2;
+        this.spin.volume = 1;
+        this.coin.volume = 0.8;
+    },
+
+    // playBGM() {
+    //     this.init();
+    //     if (!this.bgm) return;
+    //     this.bgm.currentTime = 0;
+    //     this.bgm.play().catch(() => {});
+    // },
+
+    playSpin() {
+        this.init();
+        if (!this.spin) return;
+        this.spin.currentTime = 0;
+        this.spin.play().catch(() => {});
+    },
+
+    playCoin() {
+        this.init();
+        if (!this.coin) return;
+        this.coin.currentTime = 0;
+        this.coin.play().catch(() => {});
+    }
+};
+
 // =============================================
 // 狀態變數
 // =============================================
@@ -78,6 +122,8 @@ function showGamePage(name, roomId) {
     // 退出按鈕顯示房間號
     const leaveBtnEl = document.getElementById('leaveBtn');
     if (leaveBtnEl) leaveBtnEl.innerText = '退出 [' + roomId + '] 遊戲';
+    // 播放 BGM（使用者已互動過，可以播放）
+    //_audio.playBGM();
     listenToMyStatus(name, roomId);
     listenAllPlayers_NEW(roomId);
     listenGameStatus_NEW();
@@ -147,8 +193,8 @@ function animateStatBox(boxId, isPositive) {
 }
 
 function formatSalary(val) {
-    if (val >= 1000000) return '$' + Math.round(val / 1000000) + 'm';
-    if (val >= 1000)    return '$' + Math.round(val / 1000) + 'k';
+    if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'm';
+    if (val >= 1000)    return '$' + (val / 1000).toFixed(1) + 'k';
     return '$' + val;
 }
 function formatMoney(val) {
@@ -307,6 +353,7 @@ async function commitAdjust(direction) {
         await update(playerRef, { [currentModifyTarget]: newVal });
         const lbl = currentModifyTarget === 'balance' ? '金錢' : '人生值';
         addLog(roomId, name, lbl + ' ' + (delta > 0 ? '+' : '') + delta + ' → ' + newVal);
+        if (delta > 0 && currentModifyTarget === 'balance') _audio.playCoin();
     }
     closeFuncPanel();
     resetOperation();
@@ -652,7 +699,17 @@ async function applyCarAging(roomId, name) {
             }
             lifeBonus += 100;
         } else if (c.type === 'luxury') {
-            const newVal = newAge < 15 ? Math.max(0, (c.value ?? 0) - 5000) : (c.value ?? 0) + 5000;
+            let newVal;
+            if (newAge <= 8) {
+                // 前8年折舊，最低10k
+                newVal = Math.max(10000, (c.value ?? 0) - 5000);
+            } else if (newAge < 15) {
+                // 第9~14年：維持現值（不漲不跌）
+                newVal = c.value ?? 0;
+            } else {
+                // 第15年起成為古董車，升值
+                newVal = (c.value ?? 0) + 5000;
+            }
             upd['car/' + slot + '/value'] = newVal;
             upd['car/' + slot + '/age'] = newAge;
             lifeBonus += 200;
@@ -1219,13 +1276,24 @@ function initChance_panel() {
         '</div>',
         true,
         (val) => {
+            if (val > 100000) {
+                document.getElementById('chance-panel-msg').innerText = '⚠️ 上限 $100,000，請重新輸入';
+                document.getElementById('chance-confirm-btn').disabled = true;
+                chanceInvestAmount = 0;
+                return;
+            }
             chanceInvestAmount = val;
             document.getElementById('chance-panel-msg').innerText = '金額：' + formatMoney(val);
+            document.getElementById('chance-confirm-btn').disabled = false;
         }
     );
 
     setTimeout(() => {
         document.getElementById('chance-confirm-btn')?.addEventListener('click', () => {
+            if (chanceInvestAmount > 100000) {
+                document.getElementById('chance-panel-msg').innerText = '⚠️ 上限 $100,000';
+                return;
+            }
             chancePhase = 'SPIN';
             // 切換面板內容：顯示三個結果按鈕 + START
             document.getElementById('func-panel-title').innerText = '🎲 CHANCE 抽獎';
@@ -1597,6 +1665,7 @@ document.getElementById('spinBtn').addEventListener('click', async () => {
     const _sb = document.getElementById('spinBtn');
     if (_sb.disabled || _sb.classList.contains('spin-locked') || _sb.classList.contains('spin-done')) return;
     if (isSpinning) return;
+    _audio.playSpin();
 
     if (activeFuncMode === 'CHANCE' && chancePhase === 'SPIN') {
         isSpinning = true;
@@ -2070,11 +2139,17 @@ function listenGameStatus_NEW() {
         const me = myName();
 
         const ctrl = status.tempController ?? status.currentTurn;
+        const wasMyTurn = hasControl;
         hasControl = (ctrl === me);
         isTempControl = (status.tempController === me);
         window._currentTurn = ctrl; // 給玩家列表用
         // status 更新時強制重繪玩家列表（確保 ← 符號一致）
         refreshPlayerList();
+
+        // 輪到自己時震動提示（狀態從非控制→控制）
+        // if (hasControl && !wasMyTurn && navigator.vibrate) {
+        //     navigator.vibrate([100, 50, 100]);
+        // }
 
         // 更新 UI 控制鎖
         applyControlLock(status, me);
@@ -2382,6 +2457,8 @@ async function applySalary(roomId, name) {
     if (salary <= 0) return;
     await update(playerRef, { balance: (data.balance ?? 0) + salary });
     addLog(roomId, name, '領取薪資 +' + formatSalary(salary));
+    // 只有自己的薪資才播音效
+    if (name === myName()) _audio.playCoin();
 }
 
 // =============================================
@@ -2527,7 +2604,10 @@ async function runSettlement() {
         await update(ref(db, `rooms/${roomId}/status`), { settlementRate: rate });
     }
 
-    const lifeFromMoney = totalBalance > 0 ? Math.floor(totalBalance / rate) : 0;
+    // 負債也換算為負人生值（totalBalance 可為負）
+    const lifeFromMoney = totalBalance >= 0
+        ? Math.floor(totalBalance / rate)
+        : -Math.floor(Math.abs(totalBalance) / rate);
     const finalLife = (data.lifeValue ?? 0) + lifeFromMoney;
 
     // 先顯示資產總額，延遲後才轉換
