@@ -204,6 +204,7 @@ header {
 /* ── func-btn 基礎：大小固定，兩種模式不會改變 ── */
 .func-btn {
     background: var(--btn);
+    touch-action: manipulation;
     /* 固定高度讓切換模式不跳動 */
     height: 52px;
     padding: 0;

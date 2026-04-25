@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>生命之旅：電子銀行</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -19,6 +19,17 @@
                 style="width: 80%; padding: 10px; margin-bottom: 10px; border-radius: 10px;" placeholder="請輸入你的名稱">
             <input type="text" id="roomID" style="width: 80%; padding: 10px; margin-bottom: 10px; border-radius: 10px;"
                 placeholder="輸入房間號碼">
+            <select id="playerColor" style="width:84%;padding:10px;margin-bottom:10px;border-radius:10px;background:#2f2f2f;color:#f7f7f7;border:1px solid #555;font-size:15px;">
+                <option value="red">🔴 紅</option>
+                <option value="orange">🟠 橙</option>
+                <option value="yellow">🟡 黃</option>
+                <option value="green">🟢 綠</option>
+                <option value="blue" selected>🔵 藍</option>
+                <option value="purple">🟣 紫</option>
+                <option value="black">⚫ 黑</option>
+                <option value="white">⚪ 白</option>
+                <option value="pink">🩷 粉</option>
+            </select>
             <button id="joinBtn" class="join-btn">開始人生</button>
         </div>
     </div>
@@ -28,7 +39,7 @@
 
         <header>
             <div id="turn-indicator">等待操作...</div>
-            <div id="welcome-msg">玩家 <span id="welcome-msg-name">-</span></div>
+            <div id="welcome-msg">玩家 <span id="welcome-color-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3b82f6;border:1px solid rgba(255,255,255,0.3);vertical-align:middle;margin-right:2px;"></span><span id="welcome-msg-name">-</span></div>
         </header>
 
         <main class="dashboard">
